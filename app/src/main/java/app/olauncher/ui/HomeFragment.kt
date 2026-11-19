@@ -387,6 +387,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         isShortcut: Boolean,
         shortcutId: String?,
     ): Boolean {
+        textView.setCompoundDrawables(null, null, null, null)
         // Get user handle for the app/shortcut
         val userHandle = getUserHandleFromString(requireContext(), userString)
 
@@ -405,6 +406,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
                 // Check if our shortcut still exists
                 if (shortcuts?.any { it.id == shortcutId } == true) {
                     textView.text = appName
+                    setHomeAppIcon(textView, packageName, userString, true, shortcutId)
                     return true
                 }
                 textView.text = ""
@@ -419,10 +421,44 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         // Regular app check
         if (isPackageInstalled(requireContext(), packageName, userString)) {
             textView.text = appName
+            setHomeAppIcon(textView, packageName, userString, false, null)
             return true
         }
         textView.text = ""
         return false
+    }
+
+    private fun setHomeAppIcon(
+        textView: TextView,
+        packageName: String,
+        userString: String,
+        isShortcut: Boolean,
+        shortcutId: String?,
+    ) {
+        val context = requireContext()
+        val density = context.resources.displayMetrics.density
+        val iconSizePx = (40 * density).toInt()
+        val drawable: android.graphics.drawable.Drawable? = try {
+            if (isShortcut) {
+                val userHandle = getUserHandleFromString(context, userString)
+                val launcherApps =
+                    context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+                val query = LauncherApps.ShortcutQuery().apply {
+                    setPackage(packageName)
+                    setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+                }
+                launcherApps.getShortcuts(query, userHandle)
+                    ?.firstOrNull { it.id == shortcutId }
+                    ?.let { launcherApps.getShortcutIconDrawable(it, context.resources.displayMetrics.densityDpi) }
+            } else {
+                context.packageManager.getApplicationIcon(packageName)
+            }
+        } catch (e: Exception) {
+            null
+        }
+        drawable?.setBounds(0, 0, iconSizePx, iconSizePx)
+        textView.setCompoundDrawables(drawable, null, null, null)
+        textView.compoundDrawablePadding = (8 * density).toInt()
     }
 
     private fun hideHomeApps() {

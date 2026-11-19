@@ -240,6 +240,7 @@ class AppDrawerAdapter(
                 if (appModel.isNew) append(" ✦")
             }
             appTitle.gravity = appLabelGravity
+            setAppIcon(appModel)
             otherProfileIndicator.isVisible = appModel.user != myUserHandle
 
             appTitle.setOnClickListener { clickListener(appModel) }
@@ -340,6 +341,34 @@ class AppDrawerAdapter(
                 appTitle.visibility = View.VISIBLE
             }
             appHide.setOnClickListener { appHideListener(appModel, bindingAdapterPosition) }
+        }
+
+        private fun setAppIcon(appModel: AppModel) = with(binding) {
+            val context = root.context
+            val density = context.resources.displayMetrics.density
+            val iconSizePx = (40 * density).toInt()
+            val drawable: android.graphics.drawable.Drawable? = try {
+                if (appModel is AppModel.PinnedShortcut) {
+                    val launcherApps =
+                        context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+                    val query = LauncherApps.ShortcutQuery().apply {
+                        setPackage(appModel.appPackage)
+                        setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+                    }
+                    launcherApps.getShortcuts(query, appModel.user)
+                        ?.firstOrNull { it.id == appModel.shortcutId }
+                        ?.let { launcherApps.getShortcutIconDrawable(it, context.resources.displayMetrics.densityDpi) }
+                } else if (appModel.appPackage.isNotEmpty()) {
+                    context.packageManager.getApplicationIcon(appModel.appPackage)
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                null
+            }
+            drawable?.setBounds(0, 0, iconSizePx, iconSizePx)
+            appTitle.setCompoundDrawables(drawable, null, null, null)
+            appTitle.compoundDrawablePadding = (8 * density).toInt()
         }
 
         private fun getAppName(context: Context, appPackage: String, user: UserHandle): String {
